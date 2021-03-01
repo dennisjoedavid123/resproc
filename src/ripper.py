@@ -1,12 +1,13 @@
 import csv
 import sys
+import pandas as pd
 import os
 from icecream import ic
 import time
 import concurrent.futures
 import json
 
-OUTPUT_PATH = '../output/output.csv'
+# OUTPUT_PATH = '../output/output.csv'
 CLEAR_RESPONSE = "Clicked on 'Clear Response' button."
 csv_columns = ['EED', 'REGNO', 'CID', 'QSN', 'QA', 'AP']
 
@@ -19,7 +20,7 @@ def main():
         ic(" Exception")
 
 
-def process(INPUT_PATH, reg_no, eed):
+def process(INPUT_PATH, reg_no, eed, OUTPUT_PATH):
     input_data = open(INPUT_PATH, 'r')
     result = {}
     for line in input_data:
@@ -50,7 +51,13 @@ def process(INPUT_PATH, reg_no, eed):
                             result[data["CID"]] = data
             i += 1
 
+    # ic(result.keys())
+    # df = pd.DataFrame(result).T
+    # ic(OUTPUT_PATH)
     with open(OUTPUT_PATH, 'a') as csvfile:
+        # Writes Header only once for the entire file.
+        # df.to_csv(f, mode='a', header=f.tell() == 0, index=False)
+        # df.to_csv(f, mode='a', header=None, index=False)
         writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
 
         if csvfile.tell() == 0:
@@ -67,16 +74,41 @@ def process(INPUT_PATH, reg_no, eed):
 # __name__
 if __name__ == "__main__":
 
-    INPUT_FOLDER = "/home/dennis/Downloads/SEQ_CHECK/MAHADEV/6FEB/Candidate_Logs_06Feb2021"
+    INPUT_FOLDER = "/home/dennis/Downloads/SEQ_CHECK/DIAMOND/CRL/rack1/logs"
     fileCount = 0
     starttime = time.perf_counter()
+    out_dir = ''
+    OUTPUT_PATH = ''
+    PROJ_NAME = 'DIA'
+    prev_dir = ''
 
     for (root, dirs, files) in os.walk(INPUT_FOLDER, topdown=True):
         ic(fileCount)
+        try:
+            # ic(root)
+            out_dir = root.split('/')[9]
+
+            if prev_dir is None:
+                prev_dir = out_dir
+
+            if prev_dir != out_dir:
+                # ic(out_dir)
+                OUTPUT_PATH = '../output/diamond/rack1/output'
+                OUTPUT_PATH = OUTPUT_PATH+'_'+PROJ_NAME + \
+                    '_'+out_dir.split('_')[3]+'.csv'
+                prev_dir = out_dir
+
+            # ic(OUTPUT_PATH)
+        except IndexError:
+            # ic(root)
+            ic('Do Nothing')
+
+        # ic(OUTPUT_PATH)
         with concurrent.futures.ProcessPoolExecutor() as executor:
             results = [executor.submit(process, os.path.join(root, file),
                                        file.split('-')[0],
-                                       file.split('-')[1]
+                                       file.split('-')[1],
+                                       OUTPUT_PATH
                                        ) for file in files]
 
             for f in concurrent.futures.as_completed(results):
@@ -86,6 +118,7 @@ if __name__ == "__main__":
 
                 except Exception as exc:
                     ic(exc)
+
     finishtime = time.perf_counter() - starttime
 
     ic(str(round(finishtime, 2)) + 'seconds')
